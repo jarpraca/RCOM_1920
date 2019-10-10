@@ -29,6 +29,12 @@
 #define ESC 0x7D
 #define ESC1 0x5E
 #define ESC2 0x0D
+#define RR_R1 0x85
+#define RR_R0 0x05
+#define REJ_R1 0x81
+#define REJ_R2 0x01
+#define C_DATA_S0 0x00
+#define C_DATA_S1 0x40
 
 volatile int STOP=FALSE;
 
