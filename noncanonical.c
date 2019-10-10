@@ -20,14 +20,13 @@
 
 #define FLAG 0x7E
 #define A 0x03
-#define C_SET 0x03
-#define C_UA 0x07
-#define BCC A^C_SET
-#define BCC2 A^C_UA
+#define SET 0x03
+#define UA 0x07
+#define DISC 0x0B
 
 volatile int STOP=FALSE;
 
-void receive_set(int fd){
+void receive_msg(int fd, char c){
 	int state=START;
 	int res;
 	char buf[255];
@@ -50,13 +49,13 @@ void receive_set(int fd){
 					state=START;
 				break;
 			case A_RCV:
-				if (msg==C_SET)
+				if (msg==c)
 					state=C_RCV;
 				else
 					state=START;
 				break;
 			case C_RCV:
-				if (msg==BCC)
+				if (msg==A^c)
 					state=BCC_OK;
 				else
 					state=START;
@@ -74,16 +73,32 @@ void receive_set(int fd){
 	}
 }
 
-void send_ua(int fd){
+void receive_set(int fd){
+	receive_msg(fd, SET);
+}
+
+void receive_disc(int fd){
+	receive_msg(fd, DISC);
+}
+
+void send_resp(int fd, char c){
 	int res;
 	char buf2[5];
 	buf2[0] = FLAG;
 	buf2[1] = A;
-	buf2[2] = C_UA;
-	buf2[3] = BCC2;
+	buf2[2] = c;
+	buf2[3] = A^c;
 	buf2[4] = FLAG;
 
-    res = write(fd,buf2,5);  
+    res = write(fd,buf2,5);
+}
+
+void send_ua(int fd){
+	send_resp(fd, UA);
+}
+
+void send_disc(int fd){
+	send_resp(fd, DISC);
 }
 
 int main(int argc, char** argv)
@@ -99,12 +114,10 @@ int main(int argc, char** argv)
       exit(1);
     }
 
-
   /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
   */
-  
     
     fd = open(argv[1], O_RDWR | O_NOCTTY );
     if (fd <0) {perror(argv[1]); exit(-1); }
@@ -125,14 +138,10 @@ int main(int argc, char** argv)
     newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
     newtio.c_cc[VMIN]     = 1;   /* blocking read until 1 chars received */
 
-
-
-  /* 
-    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
-  */
-
-
+	/* 
+		VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
+		leitura do(s) prï¿½ximo(s) caracter(es)
+	*/
 
     tcflush(fd, TCIOFLUSH);
 

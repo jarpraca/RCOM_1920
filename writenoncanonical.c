@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
+    leitura do(s) prï¿½ximo(s) caracter(es)
   */
 
     tcflush(fd, TCIOFLUSH);
@@ -73,38 +73,30 @@ int main(int argc, char** argv)
     printf("New termios structure set\n");
 
     char buf[255];
-	buf[0]=FLAG;
-	buf[1] =A;
-	buf[2] = C_SET;
-	buf[3] = BCC;
-	buf[4] = FLAG;
+    buf[0]=FLAG;
+    buf[1] =A;
+    buf[2] = C_SET;
+    buf[3] = BCC;
+    buf[4] = FLAG;
 
     res = write(fd,buf,5);  
 
-
-	
-
-  /* 
-    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
-    o indicado no guião 
-  */
-
-	while (STOP==FALSE) {       /* loop for input */
-    	res = read(fd,buf,255);   /* returns after 5 chars have been input */
-		buf[res]=0;		
-		printf(":%s:%d\n", buf, res);		
-		if (buf[res-1]=='\0'){
-			STOP=TRUE;    	
-		}
+	  while (STOP==FALSE) {
+    	res = read(fd,buf,255);
+		  buf[res]=0;		
+		  printf(":%s:%d\n", buf, res);		
+		  if (buf[res-1]=='\0'){
+			  STOP=TRUE;    	
+		  }
     }
 
 	sleep(1);
    
-    if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
+  if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
+    perror("tcsetattr");
+    exit(-1);
+  }
 
-    close(fd);
-    return 0;
+  close(fd);
+  return 0;
 }
