@@ -19,7 +19,8 @@
 #define STOPS 5
 
 #define FLAG 0x7E
-#define A 0x03
+#define A_RSP 0x03
+#define A_CMD 0x01
 #define SET 0x03
 #define UA 0x07
 #define DISC 0x0B
@@ -75,7 +76,7 @@ void  close_port(int fd, struct termios *oldtio){
     close(fd);
 }
 
-void receive_msg(int fd, char c){
+void receive_msg(int fd, char c, char a){
 	int state=START;
 	int res;
 	char buf[255];
@@ -92,7 +93,7 @@ void receive_msg(int fd, char c){
 					state=FLAG_RCV;
 				break;
 			case FLAG_RCV:
-				if (msg==A)
+				if (msg==a)
 					state=A_RCV;
 				else if (msg!=FLAG)
 					state=START;
@@ -104,7 +105,7 @@ void receive_msg(int fd, char c){
 					state=START;
 				break;
 			case C_RCV:
-				if (msg==A^c)
+				if (msg==a^c)
 					state=BCC_OK;
 				else
 					state=START;
@@ -123,31 +124,31 @@ void receive_msg(int fd, char c){
 }
 
 void receive_set(int fd){
-	receive_msg(fd, SET);
+	receive_msg(fd, SET, A_RSP);
 }
 
 void receive_disc(int fd){
-	receive_msg(fd, DISC);
+	receive_msg(fd, DISC, A_RSP);
 }
 
-void send_resp(int fd, char c){
+void send_resp(int fd, char c, char a){
 	int res;
 	char buf2[5];
 	buf2[0] = FLAG;
-	buf2[1] = A;
+	buf2[1] = a;
 	buf2[2] = c;
-	buf2[3] = A^c;
+	buf2[3] = a^c;
 	buf2[4] = FLAG;
 
     res = write(fd,buf2,5);
 }
 
 void send_ua(int fd){
-	send_resp(fd, UA);
+	send_resp(fd, UA, A_RSP);
 }
 
 void send_disc(int fd){
-	send_resp(fd, DISC);
+	send_resp(fd, DISC, A_CMD);
 }
 
 int main(int argc, char** argv)
