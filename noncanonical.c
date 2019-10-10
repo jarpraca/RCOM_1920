@@ -16,7 +16,9 @@
 #define A_RCV 2
 #define C_RCV 3
 #define BCC_OK 4
-#define STOPS 5
+#define RCV_DATA 5
+#define BCC2_OK 6
+#define STOPS 7
 
 #define FLAG 0x7E
 #define A_RSP 0x03
@@ -24,6 +26,9 @@
 #define SET 0x03
 #define UA 0x07
 #define DISC 0x0B
+#define ESC 0x7D
+#define ESC1 0x5E
+#define ESC2 0x0D
 
 volatile int STOP=FALSE;
 
@@ -76,10 +81,11 @@ void  close_port(int fd, struct termios *oldtio){
     close(fd);
 }
 
-void receive_msg(int fd, char c, char a){
+void receive_msg(int fd, char c, char a, bool data){
 	int state=START;
 	int res;
 	char buf[255];
+	bool escape=false;
 
     while (state!=STOPS) {       /* loop for input */
 	 	printf("state:%d\n", state);
@@ -111,10 +117,36 @@ void receive_msg(int fd, char c, char a){
 					state=START;
 				break;
 			case BCC_OK:
-				if (msg==FLAG)
+				if (msg==FLAG){
 					state=STOPS;
+				} 
+				else if (data){
+					state=RCV_DATA;
+					if (msg==ESC)
+						escape=true;
+					else
+						escape=false;//save data
+				}
 				else
 					state=START;
+				break;
+			case RCV_DATA:
+				if (msg==FLAG){
+					state=STOPS;
+					break;
+				} 
+				if (escape)
+				{
+					if (msg==ESC1)
+						escape=false; //save data (0x7E)
+					else if (msg==ESC2)
+						escape=false; //save data (0x7D)
+					else
+						escape=false; //ERRO
+					escape=false;
+					break;
+				}
+				//save data (msg)
 				break;
 			default:
 				state=START;
@@ -129,6 +161,10 @@ void receive_set(int fd){
 
 void receive_disc(int fd){
 	receive_msg(fd, DISC, A_RSP);
+}
+
+void receive_ua(int fd){
+	receive_msg(fd, SET, A_CMD);
 }
 
 void send_resp(int fd, char c, char a){
