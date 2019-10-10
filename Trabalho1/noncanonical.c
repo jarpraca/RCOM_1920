@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -38,7 +39,8 @@
 
 volatile int STOP=FALSE;
 
-int open_port(struct termios *oldtio){
+int open_port(char **argv, struct termios *oldtio)
+{
 	int fd;
 	struct termios newtio;
 
@@ -79,6 +81,8 @@ int open_port(struct termios *oldtio){
     }
 
     printf("New termios structure set\n");
+
+	return fd;
 }
 
 void  close_port(int fd, struct termios *oldtio){
@@ -198,14 +202,15 @@ int main(int argc, char** argv)
     int fd;
     struct termios oldtio;
 
-    if ( (argc < 2) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
+	if ((argc < 2) ||
+		((strcmp("/dev/ttyS0", argv[1]) != 0) &&
+		 (strcmp("/dev/ttyS1", argv[1]) != 0) &&
+		 (strcmp("/dev/ttyS2", argv[1]) != 0))) {
+		printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+		exit(1);
     }
 
-	fd = open_port(&oldtio);
+	fd = open_port(argv, &oldtio);
 	
 	receive_set(fd);
 	send_ua(fd);
