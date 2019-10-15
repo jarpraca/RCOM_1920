@@ -166,15 +166,15 @@ void receive_msg(int fd, char c, char a, bool data){
 }
 
 void receive_set(int fd){
-	receive_msg(fd, SET, A_RSP);
+	receive_msg(fd, SET, A_RSP, false);
 }
 
 void receive_disc(int fd){
-	receive_msg(fd, DISC, A_RSP);
+	receive_msg(fd, DISC, A_RSP, false);
 }
 
 void receive_ua(int fd){
-	receive_msg(fd, SET, A_CMD);
+	receive_msg(fd, SET, A_CMD, false);
 }
 
 void send_resp(int fd, char c, char a){
