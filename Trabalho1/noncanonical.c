@@ -6,6 +6,9 @@
 #include <termios.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -22,8 +25,10 @@
 #define STOPS 7
 
 #define FLAG 0x7E
-#define A_RSP 0x03
-#define A_CMD 0x01
+#define A_RCV_RSP 0x03
+#define A_RCV_CMD 0x01
+#define A_SND_CMD 0x03
+#define A_SND_RSP 0x01
 #define SET 0x03
 #define UA 0x07
 #define DISC 0x0B
@@ -33,11 +38,13 @@
 #define RR_R1 0x85
 #define RR_R0 0x05
 #define REJ_R1 0x81
-#define REJ_R2 0x01
+#define REJ_R0 0x01
 #define C_DATA_S0 0x00
 #define C_DATA_S1 0x40
 
 volatile int STOP=FALSE;
+bool even_bit=0;
+bool previous_s=0;
 
 int open_port(char **argv, struct termios *oldtio)
 {
@@ -91,11 +98,76 @@ void  close_port(int fd, struct termios *oldtio){
     close(fd);
 }
 
-void receive_msg(int fd, char c, char a, bool data){
+void send_resp(int fd, char c, char a){
+	char buf2[5];
+	buf2[0] = FLAG;
+	buf2[1] = a;
+	buf2[2] = c;
+	buf2[3] = a^c;
+	buf2[4] = FLAG;
+
+    write(fd,buf2,5);
+}
+
+void send_set(int fd){
+	send_resp(fd, SET, A_SND_CMD);
+}
+
+void send_ua_rcv(int fd){
+	send_resp(fd, UA, A_RCV_RSP);
+}
+
+void send_ua_snd(int fd){
+	send_resp(fd, UA, A_SND_RSP);
+}
+
+void send_disc_rcv(int fd){
+	send_resp(fd, DISC, A_RCV_CMD);
+}
+
+void send_disc_snd(int fd){
+	send_resp(fd, DISC, A_SND_CMD);
+}
+
+void send_data_response(int fd, bool reject, bool duplicated){
+	if (reject && duplicated && even_bit)
+		send_resp(fd, RR_R0, A_RCV_RSP);
+	else if (reject && duplicated && !even_bit)
+		send_resp(fd, RR_R0, A_RCV_RSP);
+	else if (reject && even_bit)
+		send_resp(fd, REJ_R1, A_RCV_RSP);
+	else if (reject && !even_bit)
+		send_resp(fd, REJ_R1, A_RCV_RSP);
+	else if (!reject && even_bit)
+		send_resp(fd, RR_R0, A_RCV_RSP);
+	else
+		send_resp(fd, RR_R1, A_RCV_RSP);
+}
+
+void send_msg(int fd, char* msg, int length){
+	char buf2[7+length];
+	buf2[0] = FLAG;
+	buf2[1] = A_SND_CMD;
+	if (even_bit)
+		buf2[2] = C_DATA_S0;
+	else
+		buf2[2] = C_DATA_S1;
+	buf2[3] = (A_SND_CMD^buf2[2]);
+	for (int i=0; i<length; i++){
+		buf2[4+i] = msg[i];
+	}
+	buf2[4+length] = 0; //bcc2
+	buf2[5+length] = FLAG;
+	buf2[6+length] = 0;
+    write(fd, buf2, 7+length);
+}
+
+int receive_msg(int fd, char c, char a, bool data, char *data_buf, bool data_resp){
 	int state=START;
 	int res;
 	char buf[255];
 	bool escape=false;
+	int cnt=0;
 
     while (state!=STOPS) {       /* loop for input */
 	 	printf("state:%d\n", state);
@@ -115,16 +187,42 @@ void receive_msg(int fd, char c, char a, bool data){
 					state=START;
 				break;
 			case A_RCV:
-				if (msg==c)
-					state=C_RCV;
-				else
-					state=START;
+				if (!data && !data_resp && msg == c)
+					state = C_RCV;
+				else if (!data && !data_resp)
+					state = START;
+				else if (data_resp)
+				{
+					printf("C: %x\n", msg);
+					if (msg == RR_R1 || msg == RR_R0 || msg == REJ_R1 || msg == REJ_R0)
+					{
+						data_buf = msg;
+						state = C_RCV;
+					}
+					else
+						state = START;
+				}
+				else if (msg == C_DATA_S0 || msg == C_DATA_S1)
+				{
+					if (((bool)msg) != previous_s)
+					{
+						even_bit = !(bool)msg;
+						state = C_RCV;
+					}
+					else
+					{
+						even_bit = (bool)msg;
+						send_data_response(fd, true, (((bool)msg) == previous_s));
+					}
+				}
 				break;
 			case C_RCV:
-				if (msg==a^c)
+				if (msg==(a^c))
 					state=BCC_OK;
-				else
+				else{
 					state=START;
+					send_data_response(fd, true, false);
+				}
 				break;
 			case BCC_OK:
 				if (msg==FLAG){
@@ -132,31 +230,56 @@ void receive_msg(int fd, char c, char a, bool data){
 				} 
 				else if (data){
 					state=RCV_DATA;
+
 					if (msg==ESC)
 						escape=true;
-					else
-						escape=false;//save data
+					else{
+						char msg_string[255];
+						sprintf(msg_string,"%d", msg);
+
+						strcat(data_buf, msg_string); //save data
+						cnt++;
+					}
 				}
 				else
 					state=START;
 				break;
 			case RCV_DATA:
 				if (msg==FLAG){
-					state=STOPS;
+					cnt--;
+					char bcc_rcv=data_buf[cnt];
+					char bcc_real = data_buf[0];
+					for (int i=1; i<cnt; i++)
+						bcc_real= bcc_real ^ data_buf[i];
+					if (bcc_real == bcc_rcv){
+						previous_s = !previous_s;
+						send_data_response(fd, false, false);
+					}
+					else{
+						even_bit= !even_bit;
+						send_data_response(fd, true, false);
+					}
+					state = STOPS;
 					break;
-				} 
-				if (escape)
-				{
-					if (msg==ESC1)
-						escape=false; //save data (0x7E)
-					else if (msg==ESC2)
-						escape=false; //save data (0x7D)
+				}
+				if (escape){
+					if (msg==ESC1){
+						strcat(data_buf, 0x7E); //save data (0x7E)
+						cnt++;
+					}
+					else if (msg==ESC2){
+						strcat(data_buf, 0x7D); //save data (0x7D)
+						cnt++;
+					}
 					else
-						escape=false; //ERRO
+						state=START; //ERRO
 					escape=false;
 					break;
 				}
-				//save data (msg)
+				char msg_string[255];
+				sprintf(msg_string, "%d", msg);
+				strcat(data_buf, msg_string);//save data (msg)
+				cnt++;
 				break;
 			default:
 				state=START;
@@ -165,36 +288,44 @@ void receive_msg(int fd, char c, char a, bool data){
 	}
 }
 
-void receive_set(int fd){
-	receive_msg(fd, SET, A_RSP, false);
+void receive_set(int fd)
+{
+	receive_msg(fd, SET, A_RCV_RSP, false, NULL, false);
 }
 
-void receive_disc(int fd){
-	receive_msg(fd, DISC, A_RSP, false);
+void receive_disc_rcv(int fd)
+{
+	receive_msg(fd, DISC, A_SND_CMD, false, NULL, false);
 }
 
-void receive_ua(int fd){
-	receive_msg(fd, SET, A_CMD, false);
+void receive_disc_snd(int fd)
+{
+	receive_msg(fd, DISC, A_RCV_CMD, false, NULL, false);
 }
 
-void send_resp(int fd, char c, char a){
-	int res;
-	char buf2[5];
-	buf2[0] = FLAG;
-	buf2[1] = a;
-	buf2[2] = c;
-	buf2[3] = a^c;
-	buf2[4] = FLAG;
-
-    res = write(fd,buf2,5);
+void receive_ua_rcv(int fd)
+{
+	receive_msg(fd, UA, A_SND_RSP, false, NULL, false);
 }
 
-void send_ua(int fd){
-	send_resp(fd, UA, A_RSP);
+void receive_ua_snd(int fd)
+{
+	receive_msg(fd, UA, A_RCV_RSP, false, NULL, false);
 }
 
-void send_disc(int fd){
-	send_resp(fd, DISC, A_CMD);
+void receive_data(int fd, char *data_buf)
+{
+	if (previous_s == 0)
+		receive_msg(fd, C_DATA_S1, A_SND_CMD, true, data_buf, false);
+	else
+		receive_msg(fd, C_DATA_S0, A_SND_CMD, true, data_buf, false);
+}
+
+void receive_data_rsp(int fd)
+{
+	char buf;
+	printf("receive_msg\n");
+	receive_msg(fd, RR_R0, A_RCV_RSP, false, &buf, true);
 }
 
 int main(int argc, char** argv)
@@ -211,9 +342,8 @@ int main(int argc, char** argv)
     }
 
 	fd = open_port(argv, &oldtio);
-	
-	receive_set(fd);
-	send_ua(fd);
+	char buf[1024];
+	receive_data(fd, &buf);
 
 	close_port(fd, &oldtio);
 
