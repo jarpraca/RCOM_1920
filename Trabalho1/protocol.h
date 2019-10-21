@@ -28,7 +28,7 @@ void send_data_response(int fd, bool reject, bool duplicated);
 
 void send_msg(int fd, char *msg, int length);
 
-int receive_msg(int fd, char c, char a, bool data, char *data_buf, bool data_resp);
+int receive_msg(int fd, unsigned char c, unsigned char a, bool data, char *data_buf, bool data_resp);
 
 void receive_set(int fd);
 

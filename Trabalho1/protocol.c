@@ -99,13 +99,12 @@ void close_port(int fd, struct termios *oldtio)
 
 void send_resp(int fd, char c, char a)
 {
-    char buf2[5];
+    unsigned char buf2[5];
     buf2[0] = FLAG;
     buf2[1] = a;
     buf2[2] = c;
     buf2[3] = a ^ c;
     buf2[4] = FLAG;
-
     write(fd, buf2, 5);
 }
 
@@ -170,22 +169,20 @@ void send_msg(int fd, char *msg, int length)
     write(fd, buf2, 7 + length);
 }
 
-int receive_msg(int fd, char c, char a, bool data, char *data_buf, bool data_resp)
+int receive_msg(int fd, unsigned char c, unsigned char a, bool data, char *data_buf, bool data_resp)
 {
     int state = START;
     int res;
-    char buf[255];
+    unsigned char buf[255];
     bool escape = false;
     int cnt = 0;
-
     while (state != STOPS)
     { /* loop for input */
         printf("state:%d\n", state);
         res = read(fd, buf, 1); /* returns after 5 chars have been input */
         ;
-        printf(":%04x:%d\n", *buf, res);
-        int msg = buf[0];
-        printf(":%d:%d\n", msg, res);
+        printf(":%04x:%d\n", buf[0], res);
+        unsigned char msg = buf[0];
         switch (state)
         {
         case START:
@@ -205,11 +202,11 @@ int receive_msg(int fd, char c, char a, bool data, char *data_buf, bool data_res
                 state = START;
             else if (data_resp)
             {
-                printf("C: %x\n", msg);
                 if (msg == RR_R1 || msg == RR_R0 || msg == REJ_R1 || msg == REJ_R0)
                 {
                     data_buf = msg;
                     state = C_RCV;
+                    c=msg;
                 }
                 else
                     state = START;
@@ -220,6 +217,7 @@ int receive_msg(int fd, char c, char a, bool data, char *data_buf, bool data_res
                 {
                     even_bit = !(bool)msg;
                     state = C_RCV;
+                    c=msg;
                 }
                 else
                 {
@@ -229,7 +227,7 @@ int receive_msg(int fd, char c, char a, bool data, char *data_buf, bool data_res
             }
             break;
         case C_RCV:
-            if (msg == (a ^ c))
+            if (msg == (a^c))
                 state = BCC_OK;
             else
             {
@@ -346,6 +344,5 @@ void receive_data(int fd, char *data_buf)
 void receive_data_rsp(int fd)
 {
     char buf;
-    printf("receive_msg\n");
     receive_msg(fd, RR_R0, A_RCV_RSP, false, &buf, true);
 }
