@@ -20,13 +20,10 @@ int main(int argc, char **argv)
     // receive_disc_snd(fd);
     // send_ua_snd(fd); 
 
-    send_msg(fd, "o", 2);
-    printf("AQUI1\n");
+    send_msg(fd, "ola tudo bem?\0", 14);
     receive_data_rsp(fd);
-    printf("AQUI2\n");
-
     close_port(fd, &oldtio);
-    printf("AQUI3\n");
+
 
     return 0;
 }

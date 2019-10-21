@@ -169,7 +169,7 @@ void send_msg(int fd, char *msg, int length)
     write(fd, buf2, 7 + length);
 }
 
-int receive_msg(int fd, unsigned char c, unsigned char a, bool data, char *data_buf, bool data_resp)
+int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned char data_buf[], bool data_resp)
 {
     int state = START;
     int res;
@@ -242,16 +242,14 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, char *data_
             }
             else if (data)
             {
-                state = RCV_DATA;
-
                 if (msg == ESC)
                     escape = true;
-                else
-                {
-                    char msg_string[255];
-                    sprintf(msg_string, "%d", msg);
-
-                    strcat(data_buf, msg_string); //save data
+                else if((char)msg == '\0')
+                    state = RCV_DATA;
+                else {
+                    unsigned char msg_string[1];
+                    msg_string[0]=msg;
+                    data_buf[cnt] = msg_string[0]; //save data
                     cnt++;
                 }
             }
@@ -306,6 +304,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, char *data_
             break;
         }
     }
+    return cnt;
 }
 
 void receive_set(int fd)
@@ -333,12 +332,18 @@ void receive_ua_snd(int fd)
     receive_msg(fd, UA, A_RCV_RSP, false, NULL, false);
 }
 
-void receive_data(int fd, char *data_buf)
+void receive_data(int fd, unsigned char data_buf[])
 {
+    int size;
     if (previous_s == 0)
-        receive_msg(fd, C_DATA_S1, A_SND_CMD, true, data_buf, false);
+        size= receive_msg(fd, C_DATA_S1, A_SND_CMD, true, data_buf, false);
     else
-        receive_msg(fd, C_DATA_S0, A_SND_CMD, true, data_buf, false);
+        size = receive_msg(fd, C_DATA_S0, A_SND_CMD, true, data_buf, false);
+
+printf("size: %d \n", size);
+    for(int i=0; i< size ;i++)
+        printf("%c", data_buf[i]);
+    printf("\n");
 }
 
 void receive_data_rsp(int fd)

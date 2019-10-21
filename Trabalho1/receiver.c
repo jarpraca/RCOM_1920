@@ -15,8 +15,9 @@ int main(int argc, char **argv)
     }
 
     fd = open_port(argv, &oldtio);
-    char buf[1024];
-    receive_data(fd, buf);
+    unsigned char buf[1024];
+    buf[0]="";
+    receive_data(fd, &buf);
 
     close_port(fd, &oldtio);
 
