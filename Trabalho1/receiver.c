@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 
     unsigned char *buffer;
     buffer= malloc(sizeof(char)*1024);
-    buffer[0]=" ";
+    buffer[0]=' ';
     unsigned char *filename;
     filename= malloc(sizeof(char)*128);
     int size, i=0;

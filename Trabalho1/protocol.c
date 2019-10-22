@@ -226,7 +226,7 @@ int send_msg(int fd,unsigned char* msg, int length)
         lengthG=length;
     }
 
-    char buf2[7 + length];
+    char buf2[7 + length*2];
     buf2[0] = FLAG;
     buf2[1] = A_SND_CMD;
     if (even_bit)
@@ -263,6 +263,7 @@ int send_msg(int fd,unsigned char* msg, int length)
     buf2[4 + length +cnt] = bcc2;
     buf2[5 + length +cnt] = FLAG;
     buf2[6 + length +cnt] = '\0';
+        printf("control3: %s \n", buf2);
     return write(fd, buf2, 6 + length+cnt);
 }
 
@@ -270,19 +271,20 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
 {
     state = START;
     int res;
-    unsigned char buf[255];
     bool escape = false;
     int cnt = 0;
     while (state != STOPS)
     { /* loop for input */
-        res = read(fd, buf, 1); /* returns after 5 chars have been input */
+        unsigned char buf[2];
+        res = read(fd, buf, 1); /* returns after 1 char have been input */
+        buf[1]='\0';
         unsigned char msg = buf[0];
-
         switch (state)
         {
         case START:
-            if (msg == FLAG)
+            if (msg == FLAG){
                 state = FLAG_RCV;
+            }
             break;
         case FLAG_RCV:
             if (msg == a)
@@ -291,21 +293,24 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 state = START;
             break;
         case A_RCV:
+
             if (!data && !data_resp && msg == c)
                 state = C_RCV;
             else if (!data && !data_resp)
                 state = START;
             else if (data_resp)
             {
-                if (msg == RR_R1 || msg == RR_R0 || msg == REJ_R1 || msg == REJ_R0)
+                if ((int)msg == RR_R1 || (int)msg == RR_R0 || (int)msg == REJ_R1 || (int)msg == REJ_R0)
                 {
-                    data_buf = msg;
+                    data_buf[cnt] = msg;
                     state = C_RCV;
                     c=msg;
+                    cnt++;
                 }
                 else
                     state = START;
-            }
+            }                
+
             else if (msg == C_DATA_S0 || msg == C_DATA_S1)
             {
                 if (((bool)msg) != previous_s)
@@ -346,13 +351,14 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 state = RCV_DATA;
                 if (msg == ESC)
                     escape = true;
-                else if((char)msg == '\0'){
-                    data_buf[cnt] = '\0';
-                    cnt++; 
-                 }
+                // else if((char)msg == '\0'){
+                //     data_buf[cnt] = '\0';
+                //     cnt++; 
+                //  }
                 else {
-                   char msg_string[255];
-                    sprintf(msg_string, "%d", msg);
+                    char msg_string[255];
+                    sprintf(msg_string, "%c", msg);
+                    data_buf[cnt] = '\0';
                     strcat(data_buf, msg_string); //save data (msg)
                     cnt++;
                 }
@@ -371,7 +377,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                     bcc_real = bcc_real ^ data_buf[i];
                 if (bcc_real == bcc_rcv)
                 {
-                    previous_s = !previous_s;
+                    previous_s = even_bit;
                     send_data_response(fd, false, false);
                 }
                 else
@@ -386,12 +392,12 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             {
                 if (msg == ESC1)
                 {
-                    strcat(data_buf, 0x7E); //save data (0x7E)
+                    strcat(data_buf, "0x7E"); //save data (0x7E)
                     cnt++;
                 }
                 else if (msg == ESC2)
                 {
-                    strcat(data_buf, 0x7D); //save data (0x7D)
+                    strcat(data_buf, "0x7D"); //save data (0x7D)
                     cnt++;
                 }
                 else
@@ -401,7 +407,8 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             }
             
             char msg_string[255];
-            sprintf(msg_string, "%d", msg);
+            sprintf(msg_string, "%c", msg);
+            data_buf[cnt] = '\0';
             strcat(data_buf, msg_string); //save data (msg)
             cnt++;
             break;
@@ -447,14 +454,12 @@ int receive_data(int fd, unsigned char* data_buf)
         size= receive_msg(fd, C_DATA_S1, A_SND_CMD, true, data_buf, false);
     else
         size = receive_msg(fd, C_DATA_S0, A_SND_CMD, true, data_buf, false);
-
-        printf("data buf : %d \n",data_buf[0]);
     return size;
 }
 
 void receive_data_rsp(int fd)
 {
-    char* buf;
+    char buf[1024];
     receive_msg(fd, RR_R0, A_RCV_RSP, false, buf, true);
     data_received = true;
 }
