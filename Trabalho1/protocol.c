@@ -240,12 +240,14 @@ int send_msg(int fd,unsigned char* msg, int length)
     {
         if (msg[i] == 0x7E)
         {
+            printf("message 7e");
             cnt++;
             buf2[4+i+cnt]=0x7D;
             buf2[4 + i+cnt+1] = 0x5E;
         }
-        if (msg[i] == 0x7D)
+        else if (msg[i] == 0x7D)
         {
+            printf("message 7d");
             cnt++;
             buf2[4 + i + cnt] = 0x7D;
             buf2[4 + i + cnt + 1] = 0x5D;
@@ -255,16 +257,16 @@ int send_msg(int fd,unsigned char* msg, int length)
     }
 
     char bcc2 = msg[0];
-    for (int i = 1; i < cnt; i++)
-        bcc2 = bcc2 ^ msg[i];
+    for (int i = 1; i < length; i++)
+        bcc2 = (bcc2 ^ msg[i]);
         
-    buf2[4 + length+cnt] = bcc2;
-    buf2[5 + length+cnt] = FLAG;
-    buf2[6 + length+cnt] = 0;
-    return write(fd, buf2, 7 + length+cnt);
+    buf2[4 + length +cnt] = bcc2;
+    buf2[5 + length +cnt] = FLAG;
+    buf2[6 + length +cnt] = '\0';
+    return write(fd, buf2, 6 + length+cnt);
 }
 
-int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned char data_buf[], bool data_resp)
+int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned char* data_buf, bool data_resp)
 {
     state = START;
     int res;
@@ -273,10 +275,9 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
     int cnt = 0;
     while (state != STOPS)
     { /* loop for input */
-        printf("antes\n");
         res = read(fd, buf, 1); /* returns after 5 chars have been input */
-        printf("depois\n");
         unsigned char msg = buf[0];
+
         switch (state)
         {
         case START:
@@ -320,6 +321,11 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                     state = START;
                 }
             }
+            else
+            {
+                state=START;
+            }
+            
             break;
         case C_RCV:
             if (msg == (a^c))
@@ -336,23 +342,24 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 state = STOPS;
             }
             else if (data)
-            {
+            {                    
+                state = RCV_DATA;
                 if (msg == ESC)
                     escape = true;
-                 if((char)msg == '\0'){
+                else if((char)msg == '\0'){
                     data_buf[cnt] = '\0';
                     cnt++; 
-                    state = RCV_DATA;
                  }
                 else {
-                    unsigned char msg_string[1];
-                    msg_string[0]=msg;
-                    data_buf[cnt] = msg_string[0]; //save data
+                   char msg_string[255];
+                    sprintf(msg_string, "%d", msg);
+                    strcat(data_buf, msg_string); //save data (msg)
                     cnt++;
                 }
             }
-            else
+            else{
                 state = START;
+            }
             break;
         case RCV_DATA:
             if (msg == FLAG)
@@ -392,6 +399,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 escape = false;
                 break;
             }
+            
             char msg_string[255];
             sprintf(msg_string, "%d", msg);
             strcat(data_buf, msg_string); //save data (msg)
@@ -432,19 +440,21 @@ void receive_ua_snd(int fd)
     ua_received=true;
 }
 
-int receive_data(int fd, unsigned char data_buf[])
+int receive_data(int fd, unsigned char* data_buf)
 {
     int size;
     if (previous_s == 0)
         size= receive_msg(fd, C_DATA_S1, A_SND_CMD, true, data_buf, false);
     else
         size = receive_msg(fd, C_DATA_S0, A_SND_CMD, true, data_buf, false);
+
+        printf("data buf : %d \n",data_buf[0]);
     return size;
 }
 
 void receive_data_rsp(int fd)
 {
-    char buf;
-    receive_msg(fd, RR_R0, A_RCV_RSP, false, &buf, true);
+    char* buf;
+    receive_msg(fd, RR_R0, A_RCV_RSP, false, buf, true);
     data_received = true;
 }

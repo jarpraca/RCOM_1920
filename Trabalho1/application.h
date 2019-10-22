@@ -12,7 +12,7 @@ void send_file();
 
 int llopen(char* porta, bool transmitter);
 
-int llread(int fd, unsigned char * buffer);
+int llreadFile(int fd, unsigned char * buffer, unsigned char* filename);
 
 int llwrite(int fd, unsigned char * buffer, int length);
 
