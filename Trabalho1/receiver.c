@@ -17,9 +17,15 @@ int main(int argc, char **argv)
     fd = llopen(argv[1], false);
 
     unsigned char buffer[1024];
-    sleep(15);
-    int size = llread(fd, buffer);
-        printf("%s \n", buffer);
+    //sleep(15);
+    int size;
+    do{
+        printf("read receiver1\n");
+        size = llread(fd, buffer);
+        printf("read receiver2\n");
+    } while(size != 0);
+
+    printf("%s \n", buffer);
     llclose(fd);
     return 0;
 }

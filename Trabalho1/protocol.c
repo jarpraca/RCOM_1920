@@ -234,14 +234,34 @@ int send_msg(int fd,unsigned char* msg, int length)
     else
         buf2[2] = C_DATA_S1;
     buf2[3] = (A_SND_CMD ^ buf2[2]);
+    
+    int cnt=0;
     for (int i = 0; i < length; i++)
     {
-        buf2[4 + i] = msg[i];
+        if (msg[i] == 0x7E)
+        {
+            cnt++;
+            buf2[4+i+cnt]=0x7D;
+            buf2[4 + i+cnt+1] = 0x5E;
+        }
+        if (msg[i] == 0x7D)
+        {
+            cnt++;
+            buf2[4 + i + cnt] = 0x7D;
+            buf2[4 + i + cnt + 1] = 0x5D;
+        }
+        else
+            buf2[4 + i + cnt] = msg[i];
     }
-    buf2[4 + length] = 0; //bcc2
-    buf2[5 + length] = FLAG;
-    buf2[6 + length] = 0;
-    return write(fd, buf2, 7 + length);
+
+    char bcc2 = msg[0];
+    for (int i = 1; i < cnt; i++)
+        bcc2 = bcc2 ^ msg[i];
+        
+    buf2[4 + length+cnt] = bcc2;
+    buf2[5 + length+cnt] = FLAG;
+    buf2[6 + length+cnt] = 0;
+    return write(fd, buf2, 7 + length+cnt);
 }
 
 int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned char data_buf[], bool data_resp)
@@ -253,7 +273,9 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
     int cnt = 0;
     while (state != STOPS)
     { /* loop for input */
+        printf("antes\n");
         res = read(fd, buf, 1); /* returns after 5 chars have been input */
+        printf("depois\n");
         unsigned char msg = buf[0];
         switch (state)
         {
