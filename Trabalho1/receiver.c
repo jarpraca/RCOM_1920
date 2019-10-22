@@ -1,4 +1,4 @@
-#include "protocol.h"
+#include "application.h"
 
 int main(int argc, char **argv)
 {
@@ -14,12 +14,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    fd = open_port(argv, &oldtio);
-    unsigned char buf[1024];
-    buf[0]="";
-    receive_data(fd, &buf);
+    fd = llopen(argv, false);
 
-    close_port(fd, &oldtio);
-
+    unsigned char buffer[1024];
+    int size = llread(fd, buffer);
+        printf("%s \n", buffer);
+    llclose(fd);
     return 0;
 }

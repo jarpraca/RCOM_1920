@@ -1,4 +1,4 @@
-#include "protocol.h"
+#include "application.h"
 
 int main(int argc, char **argv)
 {
@@ -14,16 +14,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    fd = open_port(argv, &oldtio);
+   fd = llopen(argv, true);
 
-    // send_disc_snd(fd);
-    // receive_disc_snd(fd);
-    // send_ua_snd(fd); 
-
-    send_msg(fd, "ola tudo bem?\0", 14);
-    receive_data_rsp(fd);
-    close_port(fd, &oldtio);
-
+    unsigned char buffer[] = "ola tudo bem?";
+    llwrite(fd, buffer, 14);
+    llclose(fd);
 
     return 0;
 }

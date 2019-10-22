@@ -34,9 +34,66 @@
 #define C_DATA_S0 0x00
 #define C_DATA_S1 0x40
 
+#define MAX_RETR 3
+#define TIMEOUT 3
+
 volatile int STOP = FALSE;
 bool even_bit = 0;
 bool previous_s = 0;
+static int num_retr_set = 0;
+static int num_retr_disc = 0;
+static int num_retr_data = 0;
+int fdG;
+unsigned char msgG[1024];
+int lengthG;
+int state;
+
+void alarmSet()
+{
+  if (state == STOPS)
+    return;
+  if (num_retr_set < MAX_RETR)
+  {
+    printf("alarm %d \n", num_retr_set);
+    send_set(fdG);
+    num_retr_set++;
+  }
+  else
+  {
+    exit(1);
+  }
+}
+
+void alarmDisc()
+{
+ if (state == STOPS)
+    return;
+  if (num_retr_disc < MAX_RETR)
+  {
+    printf("alarm %d \n", num_retr_disc);
+    send_disc_snd(fdG);
+    num_retr_disc++;
+  }
+  else
+  {
+    exit(1);
+  }}
+
+void alarmData()
+{
+  if (state >= STOPS)
+    return;
+  if (num_retr_data < MAX_RETR)
+  {
+    printf("alarm %d \n", num_retr_data);
+    send_msg(fdG, msgG, lengthG);
+    num_retr_data++;
+  }
+  else
+  {
+    exit(1);
+  }
+}
 
 int open_port(char **argv, struct termios *oldtio)
 {
@@ -86,7 +143,7 @@ int open_port(char **argv, struct termios *oldtio)
     }
 
     printf("New termios structure set\n");
-
+    
     return fd;
 }
 
@@ -110,6 +167,8 @@ void send_resp(int fd, char c, char a)
 
 void send_set(int fd)
 {
+    signal(SIGALRM, alarmSet);
+    alarm(TIMEOUT);
     send_resp(fd, SET, A_SND_CMD);
 }
 
@@ -149,8 +208,13 @@ void send_data_response(int fd, bool reject, bool duplicated)
         send_resp(fd, RR_R1, A_RCV_RSP);
 }
 
-void send_msg(int fd, char *msg, int length)
+int send_msg(int fd,unsigned char* msg, int length)
 {
+    fdG=fd;
+    for(int i=0; i<length;i++){
+        msgG[i]=msg[i];
+    }
+    lengthG=length;
     char buf2[7 + length];
     buf2[0] = FLAG;
     buf2[1] = A_SND_CMD;
@@ -166,22 +230,19 @@ void send_msg(int fd, char *msg, int length)
     buf2[4 + length] = 0; //bcc2
     buf2[5 + length] = FLAG;
     buf2[6 + length] = 0;
-    write(fd, buf2, 7 + length);
+    return write(fd, buf2, 7 + length);
 }
 
 int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned char data_buf[], bool data_resp)
 {
-    int state = START;
+    state = START;
     int res;
     unsigned char buf[255];
     bool escape = false;
     int cnt = 0;
     while (state != STOPS)
     { /* loop for input */
-        printf("state:%d\n", state);
         res = read(fd, buf, 1); /* returns after 5 chars have been input */
-        ;
-        printf(":%04x:%d\n", buf[0], res);
         unsigned char msg = buf[0];
         switch (state)
         {
@@ -223,6 +284,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 {
                     even_bit = (bool)msg;
                     send_data_response(fd, true, (((bool)msg) == previous_s));
+                    state = START;
                 }
             }
             break;
@@ -244,8 +306,11 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             {
                 if (msg == ESC)
                     escape = true;
-                else if((char)msg == '\0')
+                 if((char)msg == '\0'){
+                    data_buf[cnt] = '\0';
+                    cnt++; 
                     state = RCV_DATA;
+                 }
                 else {
                     unsigned char msg_string[1];
                     msg_string[0]=msg;
@@ -332,18 +397,14 @@ void receive_ua_snd(int fd)
     receive_msg(fd, UA, A_RCV_RSP, false, NULL, false);
 }
 
-void receive_data(int fd, unsigned char data_buf[])
+int receive_data(int fd, unsigned char data_buf[])
 {
     int size;
     if (previous_s == 0)
         size= receive_msg(fd, C_DATA_S1, A_SND_CMD, true, data_buf, false);
     else
         size = receive_msg(fd, C_DATA_S0, A_SND_CMD, true, data_buf, false);
-
-printf("size: %d \n", size);
-    for(int i=0; i< size ;i++)
-        printf("%c", data_buf[i]);
-    printf("\n");
+    return size;
 }
 
 void receive_data_rsp(int fd)
