@@ -14,9 +14,10 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    fd = llopen(argv, false);
+    fd = llopen(argv[1], false);
 
     unsigned char buffer[1024];
+    sleep(15);
     int size = llread(fd, buffer);
         printf("%s \n", buffer);
     llclose(fd);

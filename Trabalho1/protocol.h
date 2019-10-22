@@ -9,7 +9,7 @@
 #include <string.h>
 #include <signal.h>
 
-int open_port(char **argv, struct termios *oldtio);
+int open_port(char* porta, struct termios *oldtio);
 
 void close_port(int fd, struct termios *oldtio);
 
@@ -22,6 +22,8 @@ void send_ua_snd(int fd);
 void send_disc_rcv(int fd);
 
 void send_disc_snd(int fd);
+
+void send_resp(int fd, char c, char a);
 
 int send_msg(int fd,unsigned char* msg, int length);
 

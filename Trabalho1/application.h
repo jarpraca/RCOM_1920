@@ -10,7 +10,7 @@
 
 void send_file();
 
-int llopen(int porta, bool transmitter);
+int llopen(char* porta, bool transmitter);
 
 int llread(int fd, unsigned char * buffer);
 
@@ -18,3 +18,4 @@ int llwrite(int fd, unsigned char * buffer, int length);
 
 int llclose(int fd);
 
+void llopen_image(char* path, int fd);

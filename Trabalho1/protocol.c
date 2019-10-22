@@ -34,7 +34,7 @@
 #define C_DATA_S0 0x00
 #define C_DATA_S1 0x40
 
-#define MAX_RETR 3
+#define MAX_RETR 6
 #define TIMEOUT 3
 
 volatile int STOP = FALSE;
@@ -48,14 +48,18 @@ unsigned char msgG[1024];
 int lengthG;
 int state;
 
+bool ua_received=false;
+bool data_received=false;
+bool disc_received=false;
+
 void alarmSet()
 {
-  if (state == STOPS)
+  if (ua_received)
     return;
   if (num_retr_set < MAX_RETR)
   {
-    printf("alarm %d \n", num_retr_set);
-    send_set(fdG);
+    printf("alarmSet %d \n", num_retr_set);
+    send_resp(fdG, SET, A_SND_CMD);
     num_retr_set++;
   }
   else
@@ -66,12 +70,12 @@ void alarmSet()
 
 void alarmDisc()
 {
- if (state == STOPS)
+ if (disc_received)
     return;
   if (num_retr_disc < MAX_RETR)
   {
-    printf("alarm %d \n", num_retr_disc);
-    send_disc_snd(fdG);
+    printf("alarmDisc %d \n", num_retr_disc);
+    send_resp(fdG, DISC, A_SND_CMD);
     num_retr_disc++;
   }
   else
@@ -81,11 +85,11 @@ void alarmDisc()
 
 void alarmData()
 {
-  if (state >= STOPS)
+  if (data_received)
     return;
   if (num_retr_data < MAX_RETR)
   {
-    printf("alarm %d \n", num_retr_data);
+    printf("alarmData %d \n", num_retr_data);
     send_msg(fdG, msgG, lengthG);
     num_retr_data++;
   }
@@ -95,7 +99,7 @@ void alarmData()
   }
 }
 
-int open_port(char **argv, struct termios *oldtio)
+int open_port(char* porta, struct termios *oldtio)
 {
     int fd;
     struct termios newtio;
@@ -104,11 +108,11 @@ int open_port(char **argv, struct termios *oldtio)
 		Open serial port device for reading and writing and not as controlling tty
 		because we don't want to get killed if linenoise sends CTRL-C.
 	*/
-
-    fd = open(argv[1], O_RDWR | O_NOCTTY);
+    
+    fd = open(porta, O_RDWR | O_NOCTTY);
     if (fd < 0)
     {
-        perror(argv[1]);
+        perror(porta);
         exit(-1);
     }
 
@@ -189,6 +193,8 @@ void send_disc_rcv(int fd)
 
 void send_disc_snd(int fd)
 {
+    signal(SIGALRM, alarmDisc);
+    alarm(TIMEOUT);
     send_resp(fd, DISC, A_SND_CMD);
 }
 
@@ -210,11 +216,16 @@ void send_data_response(int fd, bool reject, bool duplicated)
 
 int send_msg(int fd,unsigned char* msg, int length)
 {
-    fdG=fd;
-    for(int i=0; i<length;i++){
-        msgG[i]=msg[i];
+    if(num_retr_data==0){
+        signal(SIGALRM, alarmData);
+        alarm(TIMEOUT);
+        fdG=fd;
+        for(int i=0; i<length;i++){
+            msgG[i]=msg[i];
+        }
+        lengthG=length;
     }
-    lengthG=length;
+
     char buf2[7 + length];
     buf2[0] = FLAG;
     buf2[1] = A_SND_CMD;
@@ -385,6 +396,7 @@ void receive_disc_rcv(int fd)
 void receive_disc_snd(int fd)
 {
     receive_msg(fd, DISC, A_RCV_CMD, false, NULL, false);
+    disc_received = true;
 }
 
 void receive_ua_rcv(int fd)
@@ -395,6 +407,7 @@ void receive_ua_rcv(int fd)
 void receive_ua_snd(int fd)
 {
     receive_msg(fd, UA, A_RCV_RSP, false, NULL, false);
+    ua_received=true;
 }
 
 int receive_data(int fd, unsigned char data_buf[])
@@ -411,4 +424,5 @@ void receive_data_rsp(int fd)
 {
     char buf;
     receive_msg(fd, RR_R0, A_RCV_RSP, false, &buf, true);
+    data_received = true;
 }
