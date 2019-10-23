@@ -244,14 +244,12 @@ int send_msg(int fd, unsigned char* msg, int length)
     {
         if (msg[i] == 0x7E)
         {
-            printf("message 7e\n");
             buf2[4+i+cnt]=0x7D;
             cnt++;
             buf2[4 + i+cnt] = 0x5E;
         }
         else if (msg[i] == 0x7D)
         {
-            printf("message 7d\n");
             buf2[4 + i + cnt] = 0x7D;
             cnt++;
             buf2[4 + i + cnt] = 0x5D;
@@ -264,7 +262,6 @@ int send_msg(int fd, unsigned char* msg, int length)
     buf2[4 + length +cnt] = bcc2;
     buf2[5 + length +cnt] = FLAG;
     buf2[6 + length +cnt] = '\0';
-    printf("buf2: %s\n",buf2);
     return write(fd, buf2, 6 + length+cnt);
 }
 
@@ -355,8 +352,9 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 else {
                     char msg_string[255];
                     sprintf(msg_string, "%c", msg);
-                    data_buf[cnt] = '\0';
-                    strcat(data_buf, msg_string); //save data (msg)
+                    //data_buf[cnt] = '\0';
+                    //strcat(data_buf, msg_string); //save data (msg)
+                    data_buf[cnt]=msg_string[0];
                     cnt++;
                 }
             }
@@ -390,19 +388,20 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             {
                 if (msg == ESC1)
                 {
-                    unsigned char aux[2];
-                    aux[0] = 0x7E;
-                    aux[1] = '\0';
-                    strcat(data_buf, aux); //save data (0x7E)
+                    //unsigned char aux[2];
+                    //aux[0] = 0x7E;
+                    //aux[1] = '\0';
+                    data_buf[cnt]=0x7E;
+                    //strcat(data_buf, aux); //save data (0x7E)
                     cnt++;
                 }
                 else if (msg == ESC2)
                 {
-                    printf("rcv 7D\n");
-                    unsigned char aux[2];
-                    aux[0] = 0x7D;
-                    aux[1] = '\0';
-                    strcat(data_buf, aux); //save data (0x7D)
+                    //unsigned char aux[2];
+                    //aux[0] = 0x7D;
+                    //aux[1] = '\0';
+                    //strcat(data_buf, aux); //save data (0x7D)
+                    data_buf[cnt]=0x7D;
                     cnt++;
                 }
                 else
@@ -416,8 +415,9 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             }
             char msg_string[255];
             sprintf(msg_string, "%c", msg);
-            data_buf[cnt] = '\0';
-            strcat(data_buf, msg_string); //save data (msg)
+            //data_buf[cnt] = '\0';
+            //strcat(data_buf, msg_string); //save data (msg)
+            data_buf[cnt]=msg_string[0];
             cnt++;
             break;
         default:
