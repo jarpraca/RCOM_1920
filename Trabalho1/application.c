@@ -1,9 +1,8 @@
 #include "application.h"
 #include "protocol.h"
 
-#define PACKAGE_SIZE 8
+#define PACKAGE_SIZE 256
 struct termios oldtio; 
-static int sequenceNumber = 0;
 bool trans;
 
 void createDataPackage(unsigned char *package, int indice, int num)
@@ -26,6 +25,7 @@ void createDataPackage(unsigned char *package, int indice, int num)
     for (int i=0; i<num+4; i++)
         package[i]=buffer[i];
     free(buffer);
+    //package[num+5]='\0';
     // printf("package: %s \n", package);
 }
 
@@ -104,14 +104,14 @@ int llwrite(int fd, unsigned char * buffer, int length){
     return num;
 }
 
-int processPackage(unsigned char *buffer, unsigned char *filename)
+int processPackage(unsigned char *buffer, unsigned char *filename, int sequenceNumber)
 {
     switch(buffer[0]){
         case '1':{
             unsigned char aux[2];
-            sprintf(aux, "%d", sequenceNumber);
-            //if (buffer[1] == aux[0])
-            //{
+            sprintf(aux, "%x", sequenceNumber);
+            if (buffer[1] == aux[0])
+            {
                 int k = (int)buffer[2] + (int)buffer[3] * 8;
                 unsigned char aux2[PACKAGE_SIZE+4];
                 for (int i=0; i < PACKAGE_SIZE+4; i++)
@@ -120,8 +120,7 @@ int processPackage(unsigned char *buffer, unsigned char *filename)
                 //strncpy(buffer, &aux2[4], k);
                 for (int i=0; i<k; i++)
                     buffer[i] = aux2[i+4];
-                sequenceNumber++;
-            //}
+            }
             return 1;
         }
          
@@ -147,20 +146,23 @@ int llreadFile(int fd ){
     unsigned char filename[128];
     unsigned char buf[1024];
     llread(fd, buf);
-    processPackage(buf, filename);
+    processPackage(buf, filename, -1);
     filename[0]='z';
     FILE *file;
     file = fopen(filename, "w");
 
     unsigned char *aux;
-    int num, i=0;
+    int num, i = 0, sequenceNumber = 0;
     int ret;
     do{
         unsigned char buf[1024];
         num = llread(fd, buf);
-        ret = processPackage(buf, filename);
-        if(ret==1)
+        ret = processPackage(buf, filename, sequenceNumber);
+        if(ret==1){
             fwrite(buf, sizeof(unsigned char), num-4, file);
+            sequenceNumber++;
+            sequenceNumber %= 255;
+        }
         i++;
         if(i%20==0)
             printf("i: %d \n", i);

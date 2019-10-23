@@ -258,8 +258,24 @@ int send_msg(int fd, unsigned char* msg, int length)
             buf2[4 + i + cnt] = msg[i];
         }
     }
-        
-    buf2[4 + length +cnt] = bcc2;
+
+    if (bcc2 == 0x7E)
+    {
+        buf2[4 + length + cnt] = 0x7D;
+        cnt++;
+        buf2[4 + length + cnt] = 0x5E;
+    }
+    else if (bcc2 == 0x7D)
+    {
+        buf2[4 + length + cnt] = 0x7D;
+        cnt++;
+        buf2[4 + length + cnt] = 0x5D;
+    }
+    else
+    {
+        buf2[4 + length + cnt] = bcc2;
+    }
+    //buf2[4 + length +cnt] = bcc2;
     buf2[5 + length +cnt] = FLAG;
     buf2[6 + length +cnt] = '\0';
     return write(fd, buf2, 6 + length+cnt);
