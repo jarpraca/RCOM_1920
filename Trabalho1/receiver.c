@@ -17,14 +17,29 @@ int main(int argc, char **argv)
     fd = llopen(argv[1], false);
 
     unsigned char *buffer;
-    buffer= malloc(sizeof(char)*1024);
-    buffer[0]=' ';
+    buffer= malloc(sizeof(char)*4096);
+   // buffer[0]=' ';
     unsigned char *filename;
     filename= malloc(sizeof(char)*128);
-    int size, i=0;
-    llreadFile(fd, buffer, filename);
+    int size,res, i=0;
+    size = llreadFile(fd, buffer, filename);
 
-    printf("Final result: %s \n", buffer);
     llclose(fd);
+    //if(filename[strlen(filename)-1] == '?')
+        filename[strlen(filename)-1]='\0';
+    printf("filename: %s\n",filename);
+
+    FILE* file;
+    file = fopen(filename, "w");
+    printf("file: %s\n",file);
+  //  do{
+    //    printf("res: %d\n", res);
+        res= fwrite(buffer, sizeof(char), strlen(buffer)+1, file);
+   // }while(res==strlen(buffer)+1);
+    printf("Final result: %s \n", buffer);
+   
+    free(buffer);
+    free(filename);
+
     return 0;
 }

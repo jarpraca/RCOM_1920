@@ -263,7 +263,6 @@ int send_msg(int fd,unsigned char* msg, int length)
     buf2[4 + length +cnt] = bcc2;
     buf2[5 + length +cnt] = FLAG;
     buf2[6 + length +cnt] = '\0';
-        printf("control3: %s \n", buf2);
     return write(fd, buf2, 6 + length+cnt);
 }
 

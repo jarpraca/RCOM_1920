@@ -19,8 +19,6 @@ void createDataPackage(char* package, int indice){
     buffer[4]='\0';
     strcat(buffer, package);
     strcpy(package, buffer);
-
-    printf("package: %s \n", package);
 }
 
 void createControlPackage(char* buffer, int controlCamp, int fileSize, char* path){
@@ -35,9 +33,6 @@ void createControlPackage(char* buffer, int controlCamp, int fileSize, char* pat
     buffer[5]=aux[0];
     buffer[6]='\0';
     strcat(buffer, path);
-
-        printf("control: %s \n", buffer);
-
 }
 
 void llopen_image(char* path, int fd){
@@ -51,7 +46,6 @@ void llopen_image(char* path, int fd){
     llwrite(fd,packageControl, strlen(packageControl));
     int num, i=0;
     do{
-        printf("i:%d\n", i);
        char *packageBuf;
        packageBuf = malloc(sizeof(char)*(PACKAGE_SIZE+4));
        num = fread(packageBuf, 1, PACKAGE_SIZE, file);
@@ -89,34 +83,29 @@ int llopen(char* porta, bool transmitter){
 
 int llwrite(int fd, unsigned char * buffer, int length){
     int num=send_msg(fd, buffer, length);
-            printf("control2: %s \n", buffer);
     receive_data_rsp(fd);
     return num;
 }
 
 int processPackage(char* buffer, char* filename){
     switch(buffer[0]){
-        case '1':
-          if(buffer[1]==sequenceNumber){
-            int k = (int)buffer[2]+(int)buffer[3]*8;
-            for(int i=0; i<k;i++){
-                buffer[i]=buffer[4+i];
-            }
-            buffer[k]='\0';
-            sequenceNumber++;
-        }
-        printf("1\n");
-        return 1;
-        case '2':
-        printf("2\n");
-            if(buffer[4]==1){
-                for(int i=0; i<buffer[5];i++) {
-                    filename[i]=buffer[6+i];
+        case '1':{
+                char aux[2];
+                sprintf(aux, "%d", sequenceNumber);
+                if(buffer[1]==aux[0]){
+                    int k = (int)buffer[2]+(int)buffer[3]*8;
+                    strncpy(buffer, &buffer[4], k);
+                    sequenceNumber++;
                 }
+                return 1;
+            }
+         
+        case '2':
+            if(buffer[4]=='1'){
+                strncpy(filename, &buffer[6], (int)buffer[5]);
             }
             return 2;
         case '3':
-        printf("3\n");
             return 3;
         default: 
             return -1;
@@ -133,16 +122,15 @@ int llreadFile(int fd, unsigned char * buffer, unsigned char* filename){
     int num, i=0;
     int ret;
     do{  
-        printf("i: %d\n", i);  
         char buf[1024];
         num = llread(fd, buf);
         ret = processPackage(buf, filename);
-        printf("ret: %d\n", ret);
         if(ret== 1)
             strcat(buffer,buf);
         i++;
     }  while(ret != 3);
-    return num;
+
+    return strlen(buffer);
 }
 
 int llclose_transmitter(int fd){
