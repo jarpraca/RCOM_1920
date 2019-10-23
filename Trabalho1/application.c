@@ -12,7 +12,7 @@ void createDataPackage(unsigned char *package, int indice)
     buffer = malloc(sizeof(unsigned char)*(strlen(package) + 5));
     unsigned char aux[2];
     buffer[0]='1';
-    sprintf(aux, "%d", indice%255);
+    sprintf(aux, "%1x", indice%255);
     buffer[1]=aux[0];
     sprintf(aux, "%d", strlen(package)/8);
     buffer[2]=aux[0];
@@ -103,14 +103,17 @@ int processPackage(unsigned char *buffer, unsigned char *filename)
         case '1':{
             unsigned char aux[2];
             sprintf(aux, "%d", sequenceNumber);
-            if (buffer[1] == aux[0])
-            {
+            //if (buffer[1] == aux[0])
+            //{
                 int k = (int)buffer[2] + (int)buffer[3] * 8;
-                strncpy(buffer, &buffer[4], k);
+                unsigned char aux2[PACKAGE_SIZE+5];
+                strcpy(aux2, buffer);
+                strncpy(buffer, &aux2[4], k);
                 sequenceNumber++;
-                }
-                return 1;
-            }
+            //}
+            printf("buf: %s\n", buffer);
+            return 1;
+        }
          
         case '2':
             if(buffer[4]=='1'){
