@@ -6,9 +6,11 @@ struct termios oldtio;
 static int sequenceNumber = 0;
 bool trans;
 
-void createDataPackage(char* package, int indice){
-    char buffer[strlen(package)+4];
-    char aux[2];
+void createDataPackage(unsigned char *package, int indice)
+{
+    unsigned char* buffer;
+    buffer = malloc(sizeof(unsigned char)*(strlen(package) + 5));
+    unsigned char aux[2];
     buffer[0]='1';
     sprintf(aux, "%d", indice%255);
     buffer[1]=aux[0];
@@ -19,10 +21,12 @@ void createDataPackage(char* package, int indice){
     buffer[4]='\0';
     strcat(buffer, package);
     strcpy(package, buffer);
+    free(buffer);
 }
 
-void createControlPackage(char* buffer, int controlCamp, int fileSize, char* path){
-    char aux[2];
+void createControlPackage(unsigned char *buffer, int controlCamp, int fileSize, unsigned char *path)
+{
+    unsigned char aux[2];
     sprintf(aux, "%d",controlCamp);
     buffer[0]=aux[0];
     buffer[1]='0';
@@ -33,47 +37,53 @@ void createControlPackage(char* buffer, int controlCamp, int fileSize, char* pat
     buffer[5]=aux[0];
     buffer[6]='\0';
     strcat(buffer, path);
+    printf("path: %s\n",path);
+    printf("buf: %s\n", buffer);
 }
 
-void llopen_image(char* path, int fd){
+void llopen_image(unsigned char *path, int fd)
+{
     FILE* file;
     file = fopen(path, "r");
     fseek(file, 0L, SEEK_END);
     int size = ftell(file);
     fseek(file,0L, SEEK_SET);
-    char packageControl[5+strlen(path)];
+    unsigned char packageControl[5 + strlen(path)];
     createControlPackage(packageControl, 0x02, size, path);
     llwrite(fd,packageControl, strlen(packageControl));
     int num, i=0;
     do{
-       char *packageBuf;
-       packageBuf = malloc(sizeof(char)*(PACKAGE_SIZE+4));
-       num = fread(packageBuf, 1, PACKAGE_SIZE, file);
-       packageBuf[PACKAGE_SIZE]='\0';
-       createDataPackage(packageBuf, i);
-       llwrite(fd, packageBuf,strlen(packageBuf));
-       i++;
-       free(packageBuf);
+        unsigned char *packageBuf;
+        packageBuf = malloc(sizeof(unsigned char) * (PACKAGE_SIZE + 5));
+        num = fread(packageBuf, 1, PACKAGE_SIZE, file);
+        packageBuf[PACKAGE_SIZE] = '\0';
+        createDataPackage(packageBuf, i);
+        llwrite(fd, packageBuf, strlen(packageBuf));
+        i++;
+        free(packageBuf);
     } while(num == PACKAGE_SIZE);
     createControlPackage(packageControl,3, size, path);
     llwrite(fd,packageControl, strlen(packageControl));
 }
 
-int llopen_transmitter(char* porta){
+int llopen_transmitter(unsigned char *porta)
+{
     int fd=open_port(porta, &oldtio);
     send_set(fd);
     receive_ua_snd(fd);
     return fd;
 }
 
-int llopen_receiver(char* porta){
+int llopen_receiver(unsigned char *porta)
+{
     int fd=open_port(porta, &oldtio);  
     receive_set(fd);
     send_ua_rcv(fd); 
     return fd;
 }
 
-int llopen(char* porta, bool transmitter){
+int llopen(unsigned char *porta, bool transmitter)
+{
     trans=transmitter;
     if (transmitter)
         llopen_transmitter(porta);
@@ -87,22 +97,24 @@ int llwrite(int fd, unsigned char * buffer, int length){
     return num;
 }
 
-int processPackage(char* buffer, char* filename){
+int processPackage(unsigned char *buffer, unsigned char *filename)
+{
     switch(buffer[0]){
         case '1':{
-                char aux[2];
-                sprintf(aux, "%d", sequenceNumber);
-                if(buffer[1]==aux[0]){
-                    int k = (int)buffer[2]+(int)buffer[3]*8;
-                    strncpy(buffer, &buffer[4], k);
-                    sequenceNumber++;
+            unsigned char aux[2];
+            sprintf(aux, "%d", sequenceNumber);
+            if (buffer[1] == aux[0])
+            {
+                int k = (int)buffer[2] + (int)buffer[3] * 8;
+                strncpy(buffer, &buffer[4], k);
+                sequenceNumber++;
                 }
                 return 1;
             }
          
         case '2':
             if(buffer[4]=='1'){
-                strncpy(filename, &buffer[6], (int)buffer[5]);
+                strncpy(filename, &buffer[6], (int)buffer[5]-1);
             }
             return 2;
         case '3':
@@ -113,24 +125,34 @@ int processPackage(char* buffer, char* filename){
 }
 
 int llread(int fd, unsigned char *buffer){
-    int num =  receive_data(fd, buffer);
+    int num = receive_data(fd, buffer);
     return num;
 }
 
-int llreadFile(int fd, unsigned char * buffer, unsigned char* filename){
-    char* aux;
+int llreadFile(int fd ){
+    unsigned char filename[128];
+    unsigned char buf[1024];
+    llread(fd, buf);
+    processPackage(buf, filename);
+
+    FILE *file;
+    file = fopen(filename, "a");
+
+    unsigned char *aux;
     int num, i=0;
     int ret;
-    do{  
-        char buf[1024];
+    do{
+        unsigned char buf[1024];
         num = llread(fd, buf);
         ret = processPackage(buf, filename);
-        if(ret== 1)
-            strcat(buffer,buf);
+        if(ret==1)
+            fwrite(buf, sizeof(unsigned char), strlen(buf), file);
         i++;
     }  while(ret != 3);
 
-    return strlen(buffer);
+    fclose(file);
+
+    return strlen(buf);
 }
 
 int llclose_transmitter(int fd){

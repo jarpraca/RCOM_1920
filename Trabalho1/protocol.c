@@ -26,7 +26,7 @@
 #define DISC 0x0B
 #define ESC 0x7D
 #define ESC1 0x5E
-#define ESC2 0x0D
+#define ESC2 0x5D
 #define RR_R1 0x85
 #define RR_R0 0x05
 #define REJ_R1 0x81
@@ -214,7 +214,7 @@ void send_data_response(int fd, bool reject, bool duplicated)
         send_resp(fd, RR_R1, A_RCV_RSP);
 }
 
-int send_msg(int fd,unsigned char* msg, int length)
+int send_msg(int fd, unsigned char* msg, int length)
 {
     if(num_retr_data==0){
         signal(SIGALRM, alarmData);
@@ -226,7 +226,7 @@ int send_msg(int fd,unsigned char* msg, int length)
         lengthG=length;
     }
 
-    char buf2[7 + length*2];
+    unsigned char buf2[7 + length*2];
     buf2[0] = FLAG;
     buf2[1] = A_SND_CMD;
     if (even_bit)
@@ -234,35 +234,37 @@ int send_msg(int fd,unsigned char* msg, int length)
     else
         buf2[2] = C_DATA_S1;
     buf2[3] = (A_SND_CMD ^ buf2[2]);
-    
+
+    unsigned char bcc2 = msg[0];
+    for (int i = 1; i < length; i++)
+        bcc2 = (bcc2 ^ msg[i]);
+
     int cnt=0;
     for (int i = 0; i < length; i++)
     {
         if (msg[i] == 0x7E)
         {
-            printf("message 7e");
-            cnt++;
+            printf("message 7e\n");
             buf2[4+i+cnt]=0x7D;
-            buf2[4 + i+cnt+1] = 0x5E;
+            cnt++;
+            buf2[4 + i+cnt] = 0x5E;
         }
         else if (msg[i] == 0x7D)
         {
-            printf("message 7d");
-            cnt++;
+            printf("message 7d\n");
             buf2[4 + i + cnt] = 0x7D;
-            buf2[4 + i + cnt + 1] = 0x5D;
+            cnt++;
+            buf2[4 + i + cnt] = 0x5D;
         }
-        else
+        else{
             buf2[4 + i + cnt] = msg[i];
+        }
     }
-
-    char bcc2 = msg[0];
-    for (int i = 1; i < length; i++)
-        bcc2 = (bcc2 ^ msg[i]);
         
     buf2[4 + length +cnt] = bcc2;
     buf2[5 + length +cnt] = FLAG;
     buf2[6 + length +cnt] = '\0';
+    printf("buf2: %s\n",buf2);
     return write(fd, buf2, 6 + length+cnt);
 }
 
@@ -350,10 +352,6 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 state = RCV_DATA;
                 if (msg == ESC)
                     escape = true;
-                // else if((char)msg == '\0'){
-                //     data_buf[cnt] = '\0';
-                //     cnt++; 
-                //  }
                 else {
                     char msg_string[255];
                     sprintf(msg_string, "%c", msg);
@@ -384,6 +382,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                     even_bit = !even_bit;
                     send_data_response(fd, true, false);
                 }
+                data_buf[cnt] = '\0';
                 state = STOPS;
                 break;
             }
@@ -391,12 +390,19 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             {
                 if (msg == ESC1)
                 {
-                    strcat(data_buf, "0x7E"); //save data (0x7E)
+                    unsigned char aux[2];
+                    aux[0] = 0x7E;
+                    aux[1] = '\0';
+                    strcat(data_buf, aux); //save data (0x7E)
                     cnt++;
                 }
                 else if (msg == ESC2)
                 {
-                    strcat(data_buf, "0x7D"); //save data (0x7D)
+                    printf("rcv 7D\n");
+                    unsigned char aux[2];
+                    aux[0] = 0x7D;
+                    aux[1] = '\0';
+                    strcat(data_buf, aux); //save data (0x7D)
                     cnt++;
                 }
                 else
@@ -404,7 +410,10 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 escape = false;
                 break;
             }
-            
+            if (msg == ESC){
+                escape = true;
+                break;
+            }
             char msg_string[255];
             sprintf(msg_string, "%c", msg);
             data_buf[cnt] = '\0';
@@ -458,7 +467,7 @@ int receive_data(int fd, unsigned char* data_buf)
 
 void receive_data_rsp(int fd)
 {
-    char buf[1024];
+    unsigned char buf[1024];
     receive_msg(fd, RR_R0, A_RCV_RSP, false, buf, true);
     data_received = true;
 }
