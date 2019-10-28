@@ -38,7 +38,7 @@ void createControlPackage(unsigned char *buffer, int controlCamp, int fileSize, 
     buffer[6]='\0';
     strcat(buffer, path);
 
-    printf("control: %s \n", buffer);
+    //printf("control: %s \n", buffer);
 }
 
 void llopen_image(unsigned char *path, int fd)

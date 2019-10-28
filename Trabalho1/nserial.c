@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 
     if(atoi(argv[2]) == RECEIVER){
         fd = llopen(argv[1], RECEIVER);
-
+        //sleep(10);
         int size;
         size = llreadFile(fd);
 

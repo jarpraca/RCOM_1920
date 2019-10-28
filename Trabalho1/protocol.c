@@ -58,8 +58,7 @@ void alarmSet()
     return;
   if (num_retr_set < MAX_RETR)
   {
-    printf("alarmSet %d \n", num_retr_set);
-    send_resp(fdG, SET, A_SND_CMD);
+    send_set(fdG);
     num_retr_set++;
   }
   else
@@ -74,14 +73,15 @@ void alarmDisc()
     return;
   if (num_retr_disc < MAX_RETR)
   {
-    printf("alarmDisc %d \n", num_retr_disc);
-    send_resp(fdG, DISC, A_SND_CMD);
+    //printf("alarmDisc %d \n", num_retr_disc);
+    send_disc_snd(fdG);
     num_retr_disc++;
   }
   else
   {
     exit(1);
-  }}
+  }
+}
 
 void alarmData()
 {
@@ -89,7 +89,7 @@ void alarmData()
     return;
   if (num_retr_data < MAX_RETR)
   {
-    printf("alarmData %d \n", num_retr_data);
+    //printf("alarmData %d \n", num_retr_data);
     send_msg(fdG, msgG, lengthG);
     num_retr_data++;
   }
@@ -171,7 +171,8 @@ void send_resp(int fd, char c, char a)
 
 void send_set(int fd)
 {
-    signal(SIGALRM, alarmSet);
+    if(num_retr_set == 0)
+        signal(SIGALRM, alarmSet);
     alarm(TIMEOUT);
     send_resp(fd, SET, A_SND_CMD);
 }
@@ -193,7 +194,8 @@ void send_disc_rcv(int fd)
 
 void send_disc_snd(int fd)
 {
-    signal(SIGALRM, alarmDisc);
+    if(num_retr_disc == 0)
+        signal(SIGALRM, alarmDisc);
     alarm(TIMEOUT);
     send_resp(fd, DISC, A_SND_CMD);
 }
@@ -430,6 +432,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
 
 void receive_set(int fd)
 {
+    sleep(15);
     receive_msg(fd, SET, A_RCV_RSP, false, NULL, false);
 }
 
