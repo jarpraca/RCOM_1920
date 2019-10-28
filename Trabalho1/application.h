@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <string.h>
 
+#define TRANSMITTER 1
+#define RECEIVER 0
+
 void send_file();
 
 int llopen(unsigned char *porta, bool transmitter);

@@ -2,7 +2,7 @@
 #include "protocol.h"
 
 #define PACKAGE_SIZE 256
-struct termios oldtio; 
+struct termios oldtio;
 bool trans;
 
 void createDataPackage(unsigned char *package, int indice, int num)
@@ -64,6 +64,8 @@ void llopen_image(unsigned char *path, int fd)
         packageBuf[num] = '\0';
         createDataPackage(packageBuf, i, num);
         llwrite(fd, packageBuf, num+4);
+        if (i % 50 == 0)
+            printf("%d\n", i);
         i++;
         free(packageBuf);
     } while(num == PACKAGE_SIZE);
@@ -163,6 +165,8 @@ int llreadFile(int fd ){
             sequenceNumber++;
             sequenceNumber %= 255;
         }
+        if(i%50==0)
+            printf("%d\n",i);
         i++;
     }  while(ret != 3);
 
@@ -176,6 +180,7 @@ int llclose_transmitter(int fd){
     receive_disc_snd(fd);
     send_ua_snd(fd);
     close_port(fd, &oldtio);
+    return 0;
 }
 
 int llclose_receiver(int fd){
@@ -183,11 +188,12 @@ int llclose_receiver(int fd){
     send_disc_rcv(fd);
     receive_ua_rcv(fd);
     close_port(fd, &oldtio);
+    return 0;
 }
 
 int llclose(int fd){
-     if (trans)
-        llclose_transmitter(fd);
+    if (trans)
+        return llclose_transmitter(fd);
     else
-        llclose_receiver(fd);
+        return llclose_receiver(fd);
 }
