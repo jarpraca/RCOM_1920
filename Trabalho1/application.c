@@ -17,16 +17,11 @@ void createDataPackage(unsigned char *package, int indice, int num)
     buffer[2]=aux[0];
     sprintf(aux, "%d", num%8);
     buffer[3]=aux[0];
-    //buffer[4]='\0';
-    //strcat(buffer, package);
     for (int i=0; i<num; i++)
         buffer[4+i]=package[i];
-    //strcpy(package, buffer);
     for (int i=0; i<num+4; i++)
         package[i]=buffer[i];
     free(buffer);
-    //package[num+5]='\0';
-    // printf("package: %s \n", package);
 }
 
 void createControlPackage(unsigned char *buffer, int controlCamp, int fileSize, unsigned char *path)
@@ -50,6 +45,11 @@ void llopen_image(unsigned char *path, int fd)
 {
     FILE* file;
     file = fopen(path, "r");
+
+    if(file==NULL){
+        perror("File opening failed ");
+        exit(1);
+    }
     fseek(file, 0L, SEEK_END);
     int size = ftell(file);
     fseek(file,0L, SEEK_SET);
@@ -65,8 +65,6 @@ void llopen_image(unsigned char *path, int fd)
         createDataPackage(packageBuf, i, num);
         llwrite(fd, packageBuf, num+4);
         i++;
-        if(i%20==0)
-            printf("i: %d \n",i);
         free(packageBuf);
     } while(num == PACKAGE_SIZE);
     createControlPackage(packageControl,3, size, path);
@@ -99,8 +97,11 @@ int llopen(unsigned char *porta, bool transmitter)
 }
 
 int llwrite(int fd, unsigned char * buffer, int length){
-    int num=send_msg(fd, buffer, length);
-    receive_data_rsp(fd);
+    int num;
+    do{
+        num=send_msg(fd, buffer, length);
+    } while(!receive_data_rsp(fd));
+    
     return num;
 }
 
@@ -127,7 +128,6 @@ int processPackage(unsigned char *buffer, unsigned char *filename, int sequenceN
         case '2':
             if(buffer[4]=='1'){
                 strncpy(filename, &buffer[6], (int)buffer[5]);
-                printf("filename: %s \n", filename);
             }
             return 2;
         case '3':
@@ -164,8 +164,6 @@ int llreadFile(int fd ){
             sequenceNumber %= 255;
         }
         i++;
-        if(i%20==0)
-            printf("i: %d \n", i);
     }  while(ret != 3);
 
     fclose(file);

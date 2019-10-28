@@ -201,17 +201,17 @@ void send_disc_snd(int fd)
 void send_data_response(int fd, bool reject, bool duplicated)
 {
     if (reject && duplicated && even_bit)
-        send_resp(fd, RR_R0, A_RCV_RSP);
+        send_resp(fd, RR_R1, A_RCV_RSP);
     else if (reject && duplicated && !even_bit)
         send_resp(fd, RR_R0, A_RCV_RSP);
     else if (reject && even_bit)
         send_resp(fd, REJ_R1, A_RCV_RSP);
     else if (reject && !even_bit)
-        send_resp(fd, REJ_R1, A_RCV_RSP);
+        send_resp(fd, REJ_R0, A_RCV_RSP);
     else if (!reject && even_bit)
-        send_resp(fd, RR_R0, A_RCV_RSP);
-    else
         send_resp(fd, RR_R1, A_RCV_RSP);
+    else
+        send_resp(fd, RR_R0, A_RCV_RSP);
 }
 
 int send_msg(int fd, unsigned char* msg, int length)
@@ -254,9 +254,8 @@ int send_msg(int fd, unsigned char* msg, int length)
             cnt++;
             buf2[4 + i + cnt] = 0x5D;
         }
-        else{
+        else
             buf2[4 + i + cnt] = msg[i];
-        }
     }
 
     if (bcc2 == 0x7E)
@@ -272,10 +271,8 @@ int send_msg(int fd, unsigned char* msg, int length)
         buf2[4 + length + cnt] = 0x5D;
     }
     else
-    {
         buf2[4 + length + cnt] = bcc2;
-    }
-    //buf2[4 + length +cnt] = bcc2;
+
     buf2[5 + length +cnt] = FLAG;
     buf2[6 + length +cnt] = '\0';
     return write(fd, buf2, 6 + length+cnt);
@@ -316,10 +313,9 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             {
                 if ((int)msg == RR_R1 || (int)msg == RR_R0 || (int)msg == REJ_R1 || (int)msg == REJ_R0)
                 {
-                    data_buf[cnt] = msg;
+                    data_buf[0] = msg;
                     state = C_RCV;
                     c=msg;
-                    cnt++;
                 }
                 else
                     state = START;
@@ -368,8 +364,6 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 else {
                     char msg_string[255];
                     sprintf(msg_string, "%c", msg);
-                    //data_buf[cnt] = '\0';
-                    //strcat(data_buf, msg_string); //save data (msg)
                     data_buf[cnt]=msg_string[0];
                     cnt++;
                 }
@@ -404,19 +398,11 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             {
                 if (msg == ESC1)
                 {
-                    //unsigned char aux[2];
-                    //aux[0] = 0x7E;
-                    //aux[1] = '\0';
                     data_buf[cnt]=0x7E;
-                    //strcat(data_buf, aux); //save data (0x7E)
                     cnt++;
                 }
                 else if (msg == ESC2)
                 {
-                    //unsigned char aux[2];
-                    //aux[0] = 0x7D;
-                    //aux[1] = '\0';
-                    //strcat(data_buf, aux); //save data (0x7D)
                     data_buf[cnt]=0x7D;
                     cnt++;
                 }
@@ -431,8 +417,6 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
             }
             char msg_string[255];
             sprintf(msg_string, "%c", msg);
-            //data_buf[cnt] = '\0';
-            //strcat(data_buf, msg_string); //save data (msg)
             data_buf[cnt]=msg_string[0];
             cnt++;
             break;
@@ -481,9 +465,12 @@ int receive_data(int fd, unsigned char* data_buf)
     return size;
 }
 
-void receive_data_rsp(int fd)
+bool receive_data_rsp(int fd)
 {
     unsigned char buf[1024];
     receive_msg(fd, RR_R0, A_RCV_RSP, false, buf, true);
+    if(buf[0]==REJ_R0 || buf[0] == REJ_R1)
+        return false;
     data_received = true;
+    return true;
 }

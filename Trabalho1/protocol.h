@@ -41,4 +41,4 @@ void receive_ua_snd(int fd);
 
 int receive_data(int fd, unsigned char data_buf[]);
 
-void receive_data_rsp(int fd);
+bool receive_data_rsp(int fd);
