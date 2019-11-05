@@ -37,8 +37,6 @@ void createControlPackage(unsigned char *buffer, int controlCamp, int fileSize, 
     buffer[5]=aux[0];
     buffer[6]='\0';
     strcat(buffer, path);
-
-    //printf("control: %s \n", buffer);
 }
 
 void llopen_image(unsigned char *path, int fd)
@@ -60,12 +58,11 @@ void llopen_image(unsigned char *path, int fd)
     do{
         unsigned char *packageBuf;
         packageBuf = malloc(sizeof(unsigned char) * (PACKAGE_SIZE + 4));
+
         num = fread(packageBuf, sizeof(unsigned char), PACKAGE_SIZE, file);
         packageBuf[num] = '\0';
         createDataPackage(packageBuf, i, num);
         llwrite(fd, packageBuf, num+4);
-        if (i % 50 == 0)
-            printf("%d\n", i);
         i++;
         free(packageBuf);
     } while(num == PACKAGE_SIZE);
@@ -149,12 +146,12 @@ int llreadFile(int fd ){
     unsigned char buf[1024];
     llread(fd, buf);
     processPackage(buf, filename, -1);
-    filename[0]='z';
     FILE *file;
+    filename[0]='z';
     file = fopen(filename, "w");
 
     unsigned char *aux;
-    int num, i = 0, sequenceNumber = 0;
+    int num, sequenceNumber = 0;
     int ret;
     do{
         unsigned char buf[1024];
@@ -165,9 +162,6 @@ int llreadFile(int fd ){
             sequenceNumber++;
             sequenceNumber %= 255;
         }
-        if(i%50==0)
-            printf("%d\n",i);
-        i++;
     }  while(ret != 3);
 
     fclose(file);

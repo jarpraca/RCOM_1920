@@ -58,6 +58,7 @@ void alarmSet()
     return;
   if (num_retr_set < MAX_RETR)
   {
+    printf("alarmSet %d \n", num_retr_set);
     send_set(fdG);
     num_retr_set++;
   }
@@ -73,7 +74,7 @@ void alarmDisc()
     return;
   if (num_retr_disc < MAX_RETR)
   {
-    //printf("alarmDisc %d \n", num_retr_disc);
+    printf("alarmDisc %d \n", num_retr_disc);
     send_disc_snd(fdG);
     num_retr_disc++;
   }
@@ -89,7 +90,7 @@ void alarmData()
     return;
   if (num_retr_data < MAX_RETR)
   {
-    //printf("alarmData %d \n", num_retr_data);
+    printf("alarmData %d \n", num_retr_data);
     send_msg(fdG, msgG, lengthG);
     num_retr_data++;
   }
@@ -220,14 +221,14 @@ int send_msg(int fd, unsigned char* msg, int length)
 {
     if(num_retr_data==0){
         signal(SIGALRM, alarmData);
-        alarm(TIMEOUT);
         fdG=fd;
         for(int i=0; i<length;i++){
             msgG[i]=msg[i];
         }
         lengthG=length;
     }
-
+    
+	alarm(TIMEOUT);
     unsigned char buf2[7 + length*2];
     buf2[0] = FLAG;
     buf2[1] = A_SND_CMD;
@@ -384,7 +385,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                     bcc_real = bcc_real ^ data_buf[i];
                 if (bcc_real == bcc_rcv)
                 {
-                    previous_s = even_bit;
+                    previous_s = !even_bit;
                     send_data_response(fd, false, false);
                 }
                 else
@@ -432,7 +433,8 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
 
 void receive_set(int fd)
 {
-    sleep(15);
+	ua_received=false;
+	num_retr_set=0;
     receive_msg(fd, SET, A_RCV_RSP, false, NULL, false);
 }
 
@@ -470,10 +472,13 @@ int receive_data(int fd, unsigned char* data_buf)
 
 bool receive_data_rsp(int fd)
 {
+	data_received=false;
+	num_retr_data=0;
     unsigned char buf[1024];
     receive_msg(fd, RR_R0, A_RCV_RSP, false, buf, true);
     if(buf[0]==REJ_R0 || buf[0] == REJ_R1)
         return false;
     data_received = true;
-    return true;
+    even_bit = !even_bit;
+  return true;
 }
