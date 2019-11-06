@@ -1,7 +1,7 @@
 #include "application.h"
 #include "protocol.h"
 
-#define PACKAGE_SIZE 256
+#define PACKAGE_SIZE 512
 struct termios oldtio;
 bool trans;
 

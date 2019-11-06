@@ -390,6 +390,7 @@ int receive_msg(int fd, unsigned char c, unsigned char a, bool data, unsigned ch
                 }
                 else
                 {
+                    data_buf[0]='\0';
                     even_bit = !even_bit;
                     send_data_response(fd, true, false);
                 }
