@@ -11,8 +11,6 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define SERVER_PORT 6000
-#define SERVER_ADDR "192.168.28.96"
 #define MAX_SIZE_STRING 100
 #define DEFAULT_PORT 21
 
