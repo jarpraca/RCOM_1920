@@ -10,14 +10,16 @@
 #include <strings.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 #define SUCCESS 0
 #define ERROR 1
 #define FAIL 2
 
 // VALUES
-#define MAX_SIZE_STRING 100
-#define MAX_LINE_LENGTH 50
+#define MAX_STRING_LENGTH 100
+#define MAX_COMMAND_LENGTH 106  
+#define MAX_LINE_LENGTH 100
 #define CODE_LENGTH 3
 #define DEFAULT_PORT 21
 
@@ -35,10 +37,10 @@
 
 typedef struct {
 
-    char user[MAX_SIZE_STRING];
-    char password[MAX_SIZE_STRING];
-    char host[MAX_SIZE_STRING];
-    char path[MAX_SIZE_STRING];
-    char filename[MAX_SIZE_STRING];
+    char user[MAX_STRING_LENGTH];
+    char password[MAX_STRING_LENGTH];
+    char host[MAX_STRING_LENGTH];
+    char path[MAX_STRING_LENGTH];
+    char filename[MAX_STRING_LENGTH];
 
 } info_ftp;

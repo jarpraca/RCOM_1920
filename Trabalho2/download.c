@@ -141,8 +141,10 @@ char* getHostIP(info_ftp* info){
     return inet_ntoa(*((struct in_addr *)h->h_addr));
 }
 
-int connectTCP(char* ip, int port)
+int connectTCP(info_ftp* info, int port)
 {
+    char *ip;
+    ip = getHostIP(info);
     int sockfd;
     struct sockaddr_in server_addr;
     int bytes;
@@ -168,6 +170,8 @@ int connectTCP(char* ip, int port)
         exit(0);
     }
 
+    printf("> telnet %s %d\n", info->host, port);
+
     return sockfd;
 }
 
@@ -178,7 +182,8 @@ void readFTPreply(int fd, char* code){
     while(state != END){
         char line[MAX_LINE_LENGTH];
         res = read(fd, line, MAX_LINE_LENGTH);
-
+        line[res-1] = '\0';
+        printf("< %s\n", line);
         if(res < 0)
             continue;
 
@@ -210,40 +215,38 @@ void readFTPreply(int fd, char* code){
 }
 
 int sendFTPcommand(int fd, char* command){
+    printf("> %s", command);
     return write(fd, command, strlen(command));
 }
 
 int login(int fd, info_ftp* info){
     // User
-    char user_command[MAX_SIZE_STRING];
+    char user_command[MAX_STRING_LENGTH+6];
     char user_reply[CODE_LENGTH];
+
     sprintf(user_command, "user %s\n", info->user);
     sendFTPcommand(fd, user_command);
     readFTPreply(fd, user_reply);
-    printf("\nUser: %s\n", user_reply);
+
     if (user_reply[0] != '2' && user_reply[0] != '3')
         return (int)user_reply[0];
 
     // Password
-    char pass_command[MAX_SIZE_STRING];
+    char pass_command[MAX_STRING_LENGTH+6];
     char pass_reply[CODE_LENGTH];
+    
     sprintf(pass_command, "pass %s\n", info->password);
     sendFTPcommand(fd, pass_command);
     readFTPreply(fd, pass_reply);
-    printf("\nPass: %s\n", pass_reply);
 
     return (int)pass_reply[0];
-}
-
-void passive_mode(int fd, char* reply){
-    sendFTPcommand(fd, "pasv\n");
 }
 
 int getHostPort(int fd){
     int state = START;
     int res;
     char port1[CODE_LENGTH+1];
-    char port2[CODE_LENGTH + 1];
+    char port2[CODE_LENGTH+1];
     int port1_counter = 0;
     int port2_counter = 0;
 
@@ -294,8 +297,8 @@ int getHostPort(int fd){
             }
             else{
                 port1[port1_counter] = c;
+                port1_counter++;
             }
-            port1_counter++;
             break;
 
         case PORT2:
@@ -307,8 +310,8 @@ int getHostPort(int fd){
             else
             {
                 port2[port2_counter] = c;
+                port2_counter++;
             }
-            port2_counter++;
             break;
 
         case DISCARD:
@@ -341,9 +344,9 @@ int downloadFile(int fd, char* filename){
 }
 
 int retrieveFile(int fd1, int fd2, info_ftp* info){
-    char command[MAX_SIZE_STRING];
+    char command[MAX_STRING_LENGTH+6];
+
     sprintf(command, "retr %s\n", info->path);
-    printf("\nRetrieve: %s\n", command);
     sendFTPcommand(fd1, command);
 
     downloadFile(fd2, info->filename);
@@ -355,39 +358,23 @@ int main(int argc, char **argv)
 {
     info_ftp info;
 
-    if(!parseURL(argv[1], &info)){
-        printf("Usage:\tftp://[<user>:<password>@]<host>/<url-path>\n\tex: ftp://username:password@fe.up.pt/example.txt\n");
+    if(argc != 2 || !parseURL(argv[1], &info)){
+        printf("Usage:\tdownload ftp://[<user>:<password>@]<host>/<url-path>\n\tex: download ftp://anonymous:password@speedtest.tele2.net/1KB.zip\n");
         exit(1);
     }
 
-    printf("User: %s\n", info.user);
-    printf("Password: %s\n", info.password);
-    printf("Host: %s\n", info.host);
-    printf("Path: %s\n", info.path);
-    printf("File: %s\n", info.filename);
-
-    char* ip;
-    ip = getHostIP(&info);
-
-    printf("\nIP: %s\n", ip);
-
-    int fd1 = connectTCP(ip, DEFAULT_PORT);
-
-    printf("\nTCP fd: %d\n", fd1);
+    int fd1 = connectTCP(&info, DEFAULT_PORT);
 
     char reply[CODE_LENGTH];
     readFTPreply(fd1, reply);
 
     login(fd1, &info);
 
-    char pasv_reply[MAX_LINE_LENGTH];
-    passive_mode(fd1, pasv_reply);
+    sendFTPcommand(fd1, "pasv\n");
 
     int port = getHostPort(fd1);
 
-    printf("\nPort: %d\n", port);
-
-    int fd2 = connectTCP(ip, port);
+    int fd2 = connectTCP(&info, port);
 
     retrieveFile(fd1, fd2, &info);
 
