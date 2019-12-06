@@ -145,6 +145,7 @@ int connectTCP(info_ftp* info, int port)
 {
     char *ip;
     ip = getHostIP(info);
+
     int sockfd;
     struct sockaddr_in server_addr;
     int bytes;
@@ -184,6 +185,7 @@ void readFTPreply(int fd, char* code){
         res = read(fd, line, MAX_LINE_LENGTH);
         line[res-1] = '\0';
         printf("< %s\n", line);
+        
         if(res < 0)
             continue;
 
@@ -216,7 +218,13 @@ void readFTPreply(int fd, char* code){
 
 int sendFTPcommand(int fd, char* command){
     printf("> %s", command);
-    return write(fd, command, strlen(command));
+    int ret = write(fd, command, strlen(command));
+    
+    if(ret < 0){
+        printf("\nError sending command: %s", command);
+    }
+
+    return ret;
 }
 
 int login(int fd, info_ftp* info){
@@ -225,21 +233,23 @@ int login(int fd, info_ftp* info){
     char user_reply[CODE_LENGTH];
 
     sprintf(user_command, "user %s\n", info->user);
-    sendFTPcommand(fd, user_command);
+    if(sendFTPcommand(fd, user_command) < 0)
+        return -1;
     readFTPreply(fd, user_reply);
 
     if (user_reply[0] != '2' && user_reply[0] != '3')
-        return (int)user_reply[0];
+        return (int)(user_reply[0] - '0');
 
     // Password
     char pass_command[MAX_STRING_LENGTH+6];
     char pass_reply[CODE_LENGTH];
     
     sprintf(pass_command, "pass %s\n", info->password);
-    sendFTPcommand(fd, pass_command);
+    if(sendFTPcommand(fd, pass_command) < 0)
+        return -1;
     readFTPreply(fd, pass_reply);
 
-    return (int)pass_reply[0];
+    return (int)(pass_reply[0] - '0');
 }
 
 int getHostPort(int fd){
@@ -347,7 +357,8 @@ int retrieveFile(int fd1, int fd2, info_ftp* info){
     char command[MAX_STRING_LENGTH+6];
 
     sprintf(command, "retr %s\n", info->path);
-    sendFTPcommand(fd1, command);
+    if(sendFTPcommand(fd1, command) < 0)
+        return -1;
 
     downloadFile(fd2, info->filename);
 
@@ -358,27 +369,53 @@ int main(int argc, char **argv)
 {
     info_ftp info;
 
+    // Parse URL syntax
     if(argc != 2 || !parseURL(argv[1], &info)){
         printf("Usage:\tdownload ftp://[<user>:<password>@]<host>/<url-path>\n\tex: download ftp://anonymous:password@speedtest.tele2.net/1KB.zip\n");
         exit(1);
     }
 
+    // Connects to FTP host
     int fd1 = connectTCP(&info, DEFAULT_PORT);
 
     char reply[CODE_LENGTH];
     readFTPreply(fd1, reply);
 
-    login(fd1, &info);
+    if(reply[0] != '2'){
+        printf("\nError connecting to host %s at port %d through TCP.\n", info.host, DEFAULT_PORT);
+        return -1;
+    }
 
-    sendFTPcommand(fd1, "pasv\n");
+    // Logs in to host
+    if (login(fd1, &info) != 2){
+        printf("\nError logging in as user %s\n", info.user);
+        return -1;
+    }
 
+    // Enters passive mode
+    if(sendFTPcommand(fd1, "pasv\n") < 0)
+        return -1;
+
+    // Gets host port to retrieve data from
     int port = getHostPort(fd1);
 
+    // Connects to host with the given port
     int fd2 = connectTCP(&info, port);
 
-    retrieveFile(fd1, fd2, &info);
+    if(fd2 < 0){
+        printf("\nError connecting to host %s at port %d through TCP.\n", info.host, port);
+        return -1;
+    }
 
-    sendFTPcommand(fd1, "quit\n");
+    // Retrieves file
+    if(retrieveFile(fd1, fd2, &info) < 0){
+        printf("\nError retrieving file in path %s.\n", info.path);
+        return -1;
+    }
+
+    // Quits host
+    if(sendFTPcommand(fd1, "quit\n") < 0)
+        return -1;
 
     close(fd1);
     close(fd2);
