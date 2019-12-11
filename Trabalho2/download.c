@@ -181,9 +181,9 @@ void readFTPreply(int fd, char* code){
     int res;
 
     while(state != END){
-        char line[MAX_LINE_LENGTH];
+        char line[MAX_LINE_LENGTH+1];
         res = read(fd, line, MAX_LINE_LENGTH);
-        line[res-1] = '\0';
+        line[res-2] = '\0';
         printf("< %s\n", line);
         
         if(res < 0)
@@ -199,13 +199,14 @@ void readFTPreply(int fd, char* code){
                 }
                 else if (line[3] == '-'){
                     strncpy(code, line, 3);
+					code[3]='\0';
                     state = LINE;
                 }
             }
             break;
 
         case LINE:
-            if (strncmp(code, line, 3) && line[3]==' '){
+            if (strncmp(code, line, 3)==0 && line[3]==0x20){
                 state = END;
             }
             break;
@@ -230,7 +231,7 @@ int sendFTPcommand(int fd, char* command){
 int login(int fd, info_ftp* info){
     // User
     char user_command[MAX_STRING_LENGTH+6];
-    char user_reply[CODE_LENGTH];
+    char user_reply[CODE_LENGTH+1];
 
     sprintf(user_command, "user %s\n", info->user);
     if(sendFTPcommand(fd, user_command) < 0)
@@ -242,7 +243,7 @@ int login(int fd, info_ftp* info){
 
     // Password
     char pass_command[MAX_STRING_LENGTH+6];
-    char pass_reply[CODE_LENGTH];
+    char pass_reply[CODE_LENGTH+1];
     
     sprintf(pass_command, "pass %s\n", info->password);
     if(sendFTPcommand(fd, pass_command) < 0)
@@ -378,7 +379,7 @@ int main(int argc, char **argv)
     // Connects to FTP host
     int fd1 = connectTCP(&info, DEFAULT_PORT);
 
-    char reply[CODE_LENGTH];
+    char reply[CODE_LENGTH+1];
     readFTPreply(fd1, reply);
 
     if(reply[0] != '2'){
