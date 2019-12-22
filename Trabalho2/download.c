@@ -361,6 +361,12 @@ int retrieveFile(int fd1, int fd2, info_ftp* info){
     if(sendFTPcommand(fd1, command) < 0)
         return -1;
 
+    char reply[CODE_LENGTH+1];
+    readFTPreply(fd1, reply);
+
+    if(reply[0] != '2' && reply[0] != '1')
+        return -1;
+        
     downloadFile(fd2, info->filename);
 
     return 0;
