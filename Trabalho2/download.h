@@ -34,6 +34,8 @@
 #define PORT2 7
 #define DISCARD 8
 #define END 9
+#define LAST_LINE 10
+#define CODE 11
 
 typedef struct {
 

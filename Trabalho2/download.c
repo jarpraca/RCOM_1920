@@ -179,35 +179,71 @@ int connectTCP(info_ftp* info, int port)
 void readFTPreply(int fd, char* code){
     int state = START;
     int res;
+    int i = 0;
+    char c;
+    char new_code[CODE_LENGTH+1];
 
     while(state != END){
-        char line[MAX_LINE_LENGTH+1];
-        res = read(fd, line, MAX_LINE_LENGTH);
-        line[res-2] = '\0';
-        printf("< %s\n", line);
+        res = read(fd, &c, 1);
         
         if(res < 0)
             continue;
 
+        if(i == 0)
+            printf("< ");
+
+        printf("%c", c);
+
         switch (state)
         {
         case START:
-            if (isdigit(line[0]) && isdigit(line[1]) && isdigit(line[2])){
-                if (line[3] == ' '){
-                    strncpy(code, line, 3);
-                    state = END;
+            if(isdigit(c)){
+                code[i] = c;
+                i++;
+            }
+            else if (c == ' ')
+            {
+                code[i] = '\0';
+                state = LAST_LINE;
+            }
+            else if (c == '-'){
+                code[i] = '\0';
+                state = LINE;
+            }
+            break;
+
+        case CODE:
+            if (isdigit(c))
+            {
+                new_code[i] = c;
+                i++;
+            }
+            else if (c == ' ')
+            {
+                new_code[i] = '\0';
+                if(strcmp(new_code, code) == 0){
+                    state = LAST_LINE;
                 }
-                else if (line[3] == '-'){
-                    strncpy(code, line, 3);
-					code[3]='\0';
-                    state = LINE;
-                }
+            }
+            else if (c == '-')
+            {
+                new_code[i] = '\0';
+                state = LINE;
+            }
+            break;
+
+        case LAST_LINE:
+            if (c == '\n')
+            {
+                state = END;
             }
             break;
 
         case LINE:
-            if (strncmp(code, line, 3)==0 && line[3]==0x20){
-                state = END;
+            if (c == '\n')
+            {
+                i = 0;
+                state = CODE;
             }
             break;
 
